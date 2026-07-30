@@ -1,0 +1,16 @@
+{
+  "objective": "look for a killstreak",
+  "clips": [
+    {
+      "start_time": 0,
+      "end_time": 15,
+      "title": "Rapid 3-Kill Streak",
+      "description": "The player secures three consecutive eliminations in quick succession using a light machine gun. The first kill occurs at 00:01, followed by a second at 00:11 and a third at 00:14, resulting in a '3rd Kill' notification on screen.",
+      "relevance_score": 100,
+      "virality_score": 85,
+      "hook": "Watch this rapid-fire 3-kill streak!",
+      "reason": "This segment clearly demonstrates a killstreak with three distinct eliminations in a short timeframe, directly matching the user's objective.",
+      "warnings": []
+    }
+  ]
+}
