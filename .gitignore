@@ -1,3 +1,10 @@
 node_modules/
 .env
-results/s
+
+results/
+videos/
+
+dist/
+coverage/
+
+*.log
