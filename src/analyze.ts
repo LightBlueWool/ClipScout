@@ -4,6 +4,7 @@ import { TwelveLabs } from "twelvelabs-js";
 import { buildClipPrompt } from "./promptBuilder";
 import { parseAnalysis } from "./parser";
 import { extractClips } from "./extractClips";
+import { extractThumbnails } from "./extractThumbnails";
 
 const apiKey = process.env.TWELVE_LABS_API_KEY;
 
@@ -136,6 +137,13 @@ export async function analyzeVideo(
     analysis.clips
   );
 
+  console.log("\nCreating thumbnails...");
+
+  const extractedThumbnails = await extractThumbnails(
+    videoPath,
+    analysis.clips
+  );
+
   console.clear();
 
   console.log("\n==============================");
@@ -181,9 +189,15 @@ export async function analyzeVideo(
     console.log("\nExtracted files:");
 
     extractedClips.forEach((extractedClip, index) => {
-      console.log(
-        `${index + 1}. ${extractedClip.outputPath}`
-      );
+      console.log(`${index + 1}. ${extractedClip.outputPath}`);
+    });
+  }
+
+  if (extractedThumbnails.length > 0) {
+    console.log("\nGenerated thumbnails:");
+
+    extractedThumbnails.forEach((thumbnail, index) => {
+      console.log(`${index + 1}. ${thumbnail.outputPath}`);
     });
   }
 }
