@@ -1,0 +1,16 @@
+{
+  "objective": "Evaluate creator recommendations for a synthetic product demo clip.",
+  "clips": [
+    {
+      "start_time": 12,
+      "end_time": 34,
+      "title": "Synthetic Demo Reveal",
+      "description": "A fictional presenter reveals a new dashboard view, points out a saved search panel, and reacts positively to the clean layout.",
+      "relevance_score": 88,
+      "virality_score": 76,
+      "hook": "This dashboard reveal makes the workflow instantly clear.",
+      "reason": "The moment has a clear reveal, simple visual stakes, and a concise reaction suitable for short-form creator testing.",
+      "warnings": []
+    }
+  ]
+}
