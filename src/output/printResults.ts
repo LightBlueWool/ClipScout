@@ -53,6 +53,26 @@ export function printResults({
     console.log(`\nHook:\n${clip.hook}`);
     console.log(`\nReason:\n${clip.reason}`);
 
+    if (clip.creator) {
+      console.log("\nCreator intelligence:");
+      console.log(
+        `Platform: ${clip.creator.suggested_platform}`
+      );
+      console.log(`Confidence: ${clip.creator.confidence}/100`);
+      console.log(
+        `Retention: ${clip.creator.retention_score}/100`
+      );
+      console.log(
+        `Thumbnail text: ${clip.creator.suggested_thumbnail_text}`
+      );
+      console.log(
+        `Caption: ${clip.creator.suggested_caption}`
+      );
+      console.log(
+        `Hashtags: ${clip.creator.suggested_hashtags.join(" ")}`
+      );
+    }
+
     if (clip.warnings.length > 0) {
       console.log(
         `\nWarnings: ${clip.warnings.join(", ")}`

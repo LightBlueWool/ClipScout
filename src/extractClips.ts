@@ -67,6 +67,7 @@ async function extractSingleClip(
     throw new Error("FFmpeg executable could not be located.");
   }
 
+  const ffmpegExecutable = ffmpegPath;
   const duration = endTime - startTime;
 
   if (startTime < 0) {
@@ -105,7 +106,7 @@ async function extractSingleClip(
   ];
 
   await new Promise<void>((resolve, reject) => {
-    const process = spawn(ffmpegPath, argumentsList, {
+    const process = spawn(ffmpegExecutable, argumentsList, {
       stdio: ["ignore", "ignore", "pipe"],
     });
 

@@ -72,6 +72,8 @@ async function extractSingleThumbnail(
     throw new Error("FFmpeg executable could not be located.");
   }
 
+  const ffmpegExecutable = ffmpegPath;
+
   if (!Number.isFinite(timestamp) || timestamp < 0) {
     throw new Error("Thumbnail timestamp must be a valid positive number.");
   }
@@ -90,7 +92,7 @@ async function extractSingleThumbnail(
   ];
 
   await new Promise<void>((resolve, reject) => {
-    const ffmpegProcess = spawn(ffmpegPath, argumentsList, {
+    const ffmpegProcess = spawn(ffmpegExecutable, argumentsList, {
       stdio: ["ignore", "ignore", "pipe"],
     });
 
