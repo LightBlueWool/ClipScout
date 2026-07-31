@@ -1,20 +1,21 @@
 export interface ClipResult {
-    start_time: number;
-    end_time: number;
+  start_time: number;
+  end_time: number;
 
-    title: string;
-    description: string;
+  title: string;
+  description: string;
 
-    relevance_score: number;
-    virality_score: number;
+  relevance_score: number;
+  virality_score: number;
+  overall_score?: number;
 
-    hook: string;
-    reason: string;
+  hook: string;
+  reason: string;
 
-    warnings: string[];
+  warnings: string[];
 }
 
 export interface ClipAnalysis {
-    objective: string;
-    clips: ClipResult[];
+  objective: string;
+  clips: ClipResult[];
 }
