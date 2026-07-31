@@ -7,6 +7,7 @@ import { extractThumbnails } from "./extractThumbnails";
 import { rankClips } from "./analysis/ranking";
 import { saveAnalysis } from "./output/saveAnalysis";
 import { printResults } from "./output/printResults";
+import { deduplicateClips } from "./analysis/deduplicate";
 
 const apiKey = process.env.TWELVE_LABS_API_KEY;
 
@@ -42,8 +43,25 @@ export async function analyzeVideo(
 
   const analysis = parseAnalysis(resultText);
 
-  analysis.clips = rankClips(analysis.clips);
+const rankedClips = rankClips(analysis.clips);
 
+const uniqueClips = deduplicateClips(rankedClips, {
+  overlapThreshold: 0.7,
+  startTimeTolerance: 2,
+});
+
+const duplicatesRemoved =
+  rankedClips.length - uniqueClips.length;
+
+analysis.clips = uniqueClips;
+
+if (duplicatesRemoved > 0) {
+  console.log(
+    `Removed ${duplicatesRemoved} duplicate ${
+      duplicatesRemoved === 1 ? "clip" : "clips"
+    }.`
+  );
+}
   const outputPath = saveAnalysis(
     videoPath,
     analysis
