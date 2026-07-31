@@ -2,7 +2,11 @@ import type {
   ClipResult,
   CreatorEnrichmentMetadata,
   CreatorEnrichmentSummary,
+  CreatorEvaluation,
+  CreatorEvaluationSummary,
   CreatorFallbackReason,
+  CreatorInsightDifferences,
+  CreatorInsights,
 } from "../types";
 import type { TextAIProvider } from "../ai/providers/types";
 import { generateCreatorInsights } from "./creatorAI";
@@ -17,6 +21,7 @@ export interface EnrichClipsOptions {
   textProvider?: TextAIProvider;
   fallbackToHeuristic?: boolean;
   concurrency?: number;
+  evaluationMode?: boolean;
 }
 
 export async function enrichClips(
@@ -29,13 +34,15 @@ export async function enrichClips(
 
   await runWithConcurrency(clips, concurrency, async (clip, index) => {
       if (!options.textProvider) {
+        const heuristic = scoreClip(clip);
+
         console.log(
           `Creator intelligence ${index + 1}/${clips.length}: fallback (no text AI provider configured).`
         );
 
         enrichedClips[index] = {
           ...clip,
-          creator: scoreClip(clip),
+          creator: heuristic,
           creatorMetadata: createFallbackMetadata(
             "provider_not_configured",
             0
@@ -45,6 +52,9 @@ export async function enrichClips(
       }
 
       const startedAt = Date.now();
+      const heuristic = options.evaluationMode
+        ? scoreClip(clip)
+        : undefined;
 
       try {
         const generated = await generateCreatorInsights(
@@ -61,6 +71,11 @@ export async function enrichClips(
             latencyMs
           ),
         };
+        attachEvaluation(
+          enrichedClips[index],
+          heuristic,
+          generated.insights
+        );
         console.log(
           `Creator intelligence ${index + 1}/${clips.length}: AI (${latencyMs}ms).`
         );
@@ -78,12 +93,17 @@ export async function enrichClips(
 
         enrichedClips[index] = {
           ...clip,
-          creator: scoreClip(clip),
+          creator: heuristic ?? scoreClip(clip),
           creatorMetadata: createFallbackMetadata(
             fallbackReason,
             latencyMs
           ),
         };
+        attachEvaluation(
+          enrichedClips[index],
+          heuristic,
+          undefined
+        );
       }
     }
   );
@@ -137,6 +157,131 @@ export function summarizeCreatorEnrichment(
   }
 
   return summary;
+}
+
+export function summarizeCreatorEvaluation(
+  clips: ClipResult[]
+): CreatorEvaluationSummary | undefined {
+  const evaluations = clips
+    .map((clip) => clip.creatorEvaluation)
+    .filter((value): value is CreatorEvaluation => value !== undefined);
+
+  if (evaluations.length === 0) {
+    return undefined;
+  }
+
+  const aiSuccessCount = evaluations.filter(
+    (evaluation) => evaluation.aiSucceeded
+  ).length;
+  const platformAgreementCount = evaluations.filter(
+    (evaluation) =>
+      evaluation.aiSucceeded &&
+      !evaluation.differences.platformChanged
+  ).length;
+
+  const summary: CreatorEvaluationSummary = {
+    clipsCompared: evaluations.length,
+    aiSuccessCount,
+    platformAgreementCount,
+    platformAgreementRate:
+      aiSuccessCount === 0
+        ? 0
+        : platformAgreementCount / aiSuccessCount,
+  };
+
+  assignEvaluationAverage(
+    summary,
+    "averageConfidenceDelta",
+    evaluations,
+    "confidenceDelta"
+  );
+  assignEvaluationAverage(
+    summary,
+    "averageRetentionDelta",
+    evaluations,
+    "retentionScoreDelta"
+  );
+  assignEvaluationAverage(
+    summary,
+    "averageReplayDelta",
+    evaluations,
+    "replayValueDelta"
+  );
+  assignEvaluationAverage(
+    summary,
+    "averageEmotionalDelta",
+    evaluations,
+    "emotionalScoreDelta"
+  );
+  assignEvaluationAverage(
+    summary,
+    "averageActionDelta",
+    evaluations,
+    "actionScoreDelta"
+  );
+
+  return summary;
+}
+
+function attachEvaluation(
+  clip: ClipResult,
+  heuristic: CreatorInsights | undefined,
+  ai: CreatorInsights | undefined
+): void {
+  if (!heuristic) {
+    return;
+  }
+
+  const evaluation: CreatorEvaluation = {
+    heuristic,
+    differences: compareCreatorInsights(heuristic, ai),
+    aiSucceeded: ai !== undefined,
+  };
+
+  if (ai !== undefined) {
+    evaluation.ai = ai;
+  }
+
+  clip.creatorEvaluation = evaluation;
+}
+
+function compareCreatorInsights(
+  heuristic: CreatorInsights,
+  ai: CreatorInsights | undefined
+): CreatorInsightDifferences {
+  if (!ai) {
+    return {
+      platformChanged: false,
+      titleChanged: false,
+      captionChanged: false,
+      thumbnailTextChanged: false,
+      hashtagsChanged: false,
+    };
+  }
+
+  return {
+    confidenceDelta: ai.confidence - heuristic.confidence,
+    retentionScoreDelta:
+      ai.retention_score - heuristic.retention_score,
+    replayValueDelta:
+      ai.replay_value - heuristic.replay_value,
+    emotionalScoreDelta:
+      ai.emotional_score - heuristic.emotional_score,
+    actionScoreDelta:
+      ai.action_score - heuristic.action_score,
+    platformChanged:
+      ai.suggested_platform !== heuristic.suggested_platform,
+    titleChanged:
+      ai.suggested_title !== heuristic.suggested_title,
+    captionChanged:
+      ai.suggested_caption !== heuristic.suggested_caption,
+    thumbnailTextChanged:
+      ai.suggested_thumbnail_text !==
+      heuristic.suggested_thumbnail_text,
+    hashtagsChanged:
+      ai.suggested_hashtags.join("\n") !==
+      heuristic.suggested_hashtags.join("\n"),
+  };
 }
 
 function createAiMetadata(
@@ -218,6 +363,42 @@ function assignIfDefined<
   if (value !== undefined) {
     metadata[key] = value;
   }
+}
+
+function assignEvaluationAverage(
+  summary: CreatorEvaluationSummary,
+  key: keyof Pick<
+    CreatorEvaluationSummary,
+    | "averageConfidenceDelta"
+    | "averageRetentionDelta"
+    | "averageReplayDelta"
+    | "averageEmotionalDelta"
+    | "averageActionDelta"
+  >,
+  evaluations: CreatorEvaluation[],
+  differenceKey: keyof Pick<
+    CreatorInsightDifferences,
+    | "confidenceDelta"
+    | "retentionScoreDelta"
+    | "replayValueDelta"
+    | "emotionalScoreDelta"
+    | "actionScoreDelta"
+  >
+): void {
+  const values = evaluations
+    .map((evaluation) => evaluation.differences[differenceKey])
+    .filter((value): value is number => value !== undefined);
+
+  if (values.length === 0) {
+    return;
+  }
+
+  summary[key] =
+    Math.round(
+      (values.reduce((total, value) => total + value, 0) /
+        values.length) *
+        100
+    ) / 100;
 }
 
 function sum(

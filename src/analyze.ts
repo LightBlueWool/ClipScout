@@ -9,6 +9,7 @@ import { deduplicateClips } from "./analysis/deduplicate";
 import {
   enrichClips,
   summarizeCreatorEnrichment,
+  summarizeCreatorEvaluation,
 } from "./creator/enrichClips";
 import { saveAnalysis } from "./output/saveAnalysis";
 import { printResults } from "./output/printResults";
@@ -27,6 +28,9 @@ const videoProvider = createVideoProvider({
 });
 
 const textProvider = createTextProvider();
+const creatorEvaluationMode =
+  process.env.CREATOR_EVALUATION_MODE?.trim().toLowerCase() ===
+  "true";
 
 export async function analyzeVideo(
   videoPath: string,
@@ -73,10 +77,22 @@ export async function analyzeVideo(
 
   analysis.clips = await enrichClips(
     uniqueClips,
-    textProvider ? { textProvider } : {}
+    {
+      ...(textProvider ? { textProvider } : {}),
+      evaluationMode: creatorEvaluationMode,
+    }
   );
   analysis.creatorSummary =
     summarizeCreatorEnrichment(analysis.clips);
+
+  if (creatorEvaluationMode) {
+    const evaluationSummary =
+      summarizeCreatorEvaluation(analysis.clips);
+
+    if (evaluationSummary) {
+      analysis.creatorEvaluationSummary = evaluationSummary;
+    }
+  }
 
   if (duplicatesRemoved > 0) {
     console.log(

@@ -16,6 +16,7 @@ export interface ClipResult {
 
   creator?: CreatorInsights;
   creatorMetadata?: CreatorEnrichmentMetadata;
+  creatorEvaluation?: CreatorEvaluation;
 }
 
 export interface CreatorInsights {
@@ -77,8 +78,41 @@ export interface CreatorEnrichmentSummary {
   averageLatencyMs?: number;
 }
 
+export interface CreatorEvaluation {
+  heuristic: CreatorInsights;
+  ai?: CreatorInsights;
+  differences: CreatorInsightDifferences;
+  aiSucceeded: boolean;
+}
+
+export interface CreatorInsightDifferences {
+  confidenceDelta?: number;
+  retentionScoreDelta?: number;
+  replayValueDelta?: number;
+  emotionalScoreDelta?: number;
+  actionScoreDelta?: number;
+  platformChanged: boolean;
+  titleChanged: boolean;
+  captionChanged: boolean;
+  thumbnailTextChanged: boolean;
+  hashtagsChanged: boolean;
+}
+
+export interface CreatorEvaluationSummary {
+  clipsCompared: number;
+  aiSuccessCount: number;
+  platformAgreementCount: number;
+  platformAgreementRate: number;
+  averageConfidenceDelta?: number;
+  averageRetentionDelta?: number;
+  averageReplayDelta?: number;
+  averageEmotionalDelta?: number;
+  averageActionDelta?: number;
+}
+
 export interface ClipAnalysis {
   objective: string;
   clips: ClipResult[];
   creatorSummary?: CreatorEnrichmentSummary;
+  creatorEvaluationSummary?: CreatorEvaluationSummary;
 }

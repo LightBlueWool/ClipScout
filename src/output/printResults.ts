@@ -53,6 +53,19 @@ export function printResults({
     console.log("");
   }
 
+  if (analysis.creatorEvaluationSummary) {
+    console.log("Creator evaluation summary:");
+    console.log(
+      `Compared: ${analysis.creatorEvaluationSummary.clipsCompared}, AI succeeded: ${analysis.creatorEvaluationSummary.aiSuccessCount}`
+    );
+    console.log(
+      `Platform agreement: ${analysis.creatorEvaluationSummary.platformAgreementCount}/${analysis.creatorEvaluationSummary.aiSuccessCount} (${formatPercent(
+        analysis.creatorEvaluationSummary.platformAgreementRate
+      )})`
+    );
+    console.log("");
+  }
+
   analysis.clips.forEach((clip, index) => {
     console.log(`Clip #${index + 1}`);
     console.log("-----------------------");
@@ -97,6 +110,35 @@ export function printResults({
       );
     }
 
+    if (clip.creatorEvaluation) {
+      console.log("\nCreator evaluation:");
+
+      if (clip.creatorEvaluation.ai) {
+        console.log(
+          `AI vs heuristic platform: ${clip.creatorEvaluation.ai.suggested_platform} vs ${clip.creatorEvaluation.heuristic.suggested_platform}`
+        );
+      } else {
+        console.log("AI vs heuristic platform: AI unavailable");
+      }
+
+      const retentionDelta =
+        clip.creatorEvaluation.differences.retentionScoreDelta;
+      const replayDelta =
+        clip.creatorEvaluation.differences.replayValueDelta;
+
+      if (retentionDelta !== undefined) {
+        console.log(
+          `Retention delta: ${formatSignedNumber(retentionDelta)}`
+        );
+      }
+
+      if (replayDelta !== undefined) {
+        console.log(
+          `Replay delta: ${formatSignedNumber(replayDelta)}`
+        );
+      }
+    }
+
     if (clip.warnings.length > 0) {
       console.log(
         `\nWarnings: ${clip.warnings.join(", ")}`
@@ -129,6 +171,14 @@ export function printResults({
   }
 
   console.log("");
+}
+
+function formatPercent(value: number): string {
+  return `${Math.round(value * 100)}%`;
+}
+
+function formatSignedNumber(value: number): string {
+  return value > 0 ? `+${value}` : value.toString();
 }
 
 function formatTimestamp(totalSeconds: number): string {
