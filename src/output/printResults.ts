@@ -29,6 +29,30 @@ export function printResults({
     console.log("No matching clips were found.\n");
   }
 
+  if (analysis.creatorSummary) {
+    console.log("Creator AI usage:");
+    console.log(
+      `AI: ${analysis.creatorSummary.aiSuccessCount}, fallback: ${analysis.creatorSummary.fallbackCount}`
+    );
+    console.log(
+      `Tokens: ${analysis.creatorSummary.totalTokens} total (${analysis.creatorSummary.totalInputTokens} in, ${analysis.creatorSummary.totalOutputTokens} out)`
+    );
+
+    if (analysis.creatorSummary.estimatedCostUsd !== undefined) {
+      console.log(
+        `Estimated cost: $${analysis.creatorSummary.estimatedCostUsd.toFixed(6)}`
+      );
+    }
+
+    if (analysis.creatorSummary.averageLatencyMs !== undefined) {
+      console.log(
+        `Average latency: ${analysis.creatorSummary.averageLatencyMs}ms`
+      );
+    }
+
+    console.log("");
+  }
+
   analysis.clips.forEach((clip, index) => {
     console.log(`Clip #${index + 1}`);
     console.log("-----------------------");

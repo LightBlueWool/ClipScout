@@ -6,7 +6,10 @@ import { extractClips } from "./extractClips";
 import { extractThumbnails } from "./extractThumbnails";
 import { rankClips } from "./analysis/ranking";
 import { deduplicateClips } from "./analysis/deduplicate";
-import { enrichClips } from "./creator/enrichClips";
+import {
+  enrichClips,
+  summarizeCreatorEnrichment,
+} from "./creator/enrichClips";
 import { saveAnalysis } from "./output/saveAnalysis";
 import { printResults } from "./output/printResults";
 
@@ -72,6 +75,8 @@ export async function analyzeVideo(
     uniqueClips,
     textProvider ? { textProvider } : {}
   );
+  analysis.creatorSummary =
+    summarizeCreatorEnrichment(analysis.clips);
 
   if (duplicatesRemoved > 0) {
     console.log(

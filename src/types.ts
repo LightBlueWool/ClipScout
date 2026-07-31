@@ -15,6 +15,7 @@ export interface ClipResult {
   warnings: string[];
 
   creator?: CreatorInsights;
+  creatorMetadata?: CreatorEnrichmentMetadata;
 }
 
 export interface CreatorInsights {
@@ -39,7 +40,45 @@ export type Platform =
   | "YouTube Shorts"
   | "Instagram Reels";
 
+export type CreatorEnrichmentSource =
+  | "ai"
+  | "heuristic";
+
+export type CreatorFallbackReason =
+  | "provider_not_configured"
+  | "provider_error"
+  | "malformed_json"
+  | "validation_failed"
+  | "empty_response";
+
+export interface CreatorEnrichmentMetadata {
+  source: CreatorEnrichmentSource;
+  provider: string;
+  model?: string;
+  latencyMs?: number;
+  inputTokens?: number;
+  outputTokens?: number;
+  totalTokens?: number;
+  estimatedCostUsd?: number;
+  fallbackReason?: CreatorFallbackReason;
+  attempts: number;
+  requestId?: string;
+  responseId?: string;
+}
+
+export interface CreatorEnrichmentSummary {
+  clipsProcessed: number;
+  aiSuccessCount: number;
+  fallbackCount: number;
+  totalInputTokens: number;
+  totalOutputTokens: number;
+  totalTokens: number;
+  estimatedCostUsd?: number;
+  averageLatencyMs?: number;
+}
+
 export interface ClipAnalysis {
   objective: string;
   clips: ClipResult[];
+  creatorSummary?: CreatorEnrichmentSummary;
 }

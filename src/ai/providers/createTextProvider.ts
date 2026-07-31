@@ -46,8 +46,41 @@ export function createTextProvider(
     `Creator intelligence: using OpenAI text provider (${model}).`
   );
 
-  return new OpenAITextProvider({
+  const providerOptions = {
     apiKey,
     model,
-  });
+  };
+  const inputCostPerMillion = parseOptionalCost(
+    env.OPENAI_INPUT_COST_PER_MILLION
+  );
+  const outputCostPerMillion = parseOptionalCost(
+    env.OPENAI_OUTPUT_COST_PER_MILLION
+  );
+
+  if (inputCostPerMillion !== undefined) {
+    Object.assign(providerOptions, { inputCostPerMillion });
+  }
+
+  if (outputCostPerMillion !== undefined) {
+    Object.assign(providerOptions, { outputCostPerMillion });
+  }
+
+  return new OpenAITextProvider(providerOptions);
+}
+
+function parseOptionalCost(value: string | undefined): number | undefined {
+  if (value === undefined || !value.trim()) {
+    return undefined;
+  }
+
+  const parsed = Number(value);
+
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    console.warn(
+      "Creator intelligence: ignoring invalid OpenAI pricing configuration."
+    );
+    return undefined;
+  }
+
+  return parsed;
 }

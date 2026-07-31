@@ -28,6 +28,14 @@ export interface TextGenerationRequest {
 
 export interface TextGenerationResult {
   text: string;
+  provider?: string;
+  model?: string;
+  inputTokens?: number;
+  outputTokens?: number;
+  totalTokens?: number;
+  estimatedCostUsd?: number;
+  requestId?: string;
+  responseId?: string;
 }
 
 export interface TextAIProvider {

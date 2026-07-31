@@ -1,4 +1,8 @@
 import type { CreatorInsights } from "../types";
+import {
+  CreatorMalformedJsonError,
+  CreatorValidationError,
+} from "./creatorErrors";
 import { validateCreatorInsights } from "./creatorValidator";
 
 export function parseCreatorInsights(json: string): CreatorInsights {
@@ -7,12 +11,14 @@ export function parseCreatorInsights(json: string): CreatorInsights {
   try {
     parsed = JSON.parse(stripJsonCodeFence(json));
   } catch {
-    throw new Error(
-      "ClipScout could not parse the creator AI response as valid JSON."
-    );
+    throw new CreatorMalformedJsonError();
   }
 
-  return validateCreatorInsights(parsed);
+  try {
+    return validateCreatorInsights(parsed);
+  } catch {
+    throw new CreatorValidationError();
+  }
 }
 
 function stripJsonCodeFence(value: string): string {

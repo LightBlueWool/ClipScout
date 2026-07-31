@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { TextAIProvider } from "../../src/ai/providers/types";
-import { enrichClips } from "../../src/creator/enrichClips";
+import { OpenAITextProvider } from "../../src/ai/providers/openAITextProvider";
+import {
+  enrichClips,
+  summarizeCreatorEnrichment,
+} from "../../src/creator/enrichClips";
 import type { ClipResult, CreatorInsights } from "../../src/types";
 
 test("uses valid AI response", async () => {
@@ -13,6 +17,12 @@ test("uses valid AI response", async () => {
     });
 
     assert.equal(clips[0]?.creator?.suggested_title, "AI First");
+    assert.equal(clips[0]?.creatorMetadata?.source, "ai");
+    assert.equal(clips[0]?.creatorMetadata?.provider, "mock");
+    assert.equal(clips[0]?.creatorMetadata?.model, "mock-model");
+    assert.equal(clips[0]?.creatorMetadata?.inputTokens, 100);
+    assert.equal(clips[0]?.creatorMetadata?.outputTokens, 20);
+    assert.equal(clips[0]?.creatorMetadata?.totalTokens, 120);
     assert.deepEqual(clips[0]?.creator?.suggested_hashtags, [
       "#clipscout",
       "#viral",
@@ -27,6 +37,10 @@ test("falls back for malformed JSON", async () => {
     });
 
     assert.equal(clips[0]?.creator?.suggested_title, "Malformed");
+    assert.equal(
+      clips[0]?.creatorMetadata?.fallbackReason,
+      "malformed_json"
+    );
   });
 });
 
@@ -39,6 +53,10 @@ test("falls back for invalid scores", async () => {
     });
 
     assert.equal(clips[0]?.creator?.suggested_title, "Invalid Score");
+    assert.equal(
+      clips[0]?.creatorMetadata?.fallbackReason,
+      "validation_failed"
+    );
   });
 });
 
@@ -49,6 +67,14 @@ test("falls back for provider exception", async () => {
     });
 
     assert.equal(clips[0]?.creator?.suggested_title, "Provider Error");
+    assert.equal(
+      clips[0]?.creatorMetadata?.fallbackReason,
+      "provider_error"
+    );
+    assert.equal(
+      JSON.stringify(clips[0]?.creatorMetadata).includes("request failed"),
+      false
+    );
   });
 });
 
@@ -117,8 +143,87 @@ test("limits creator AI concurrency to three requests", async () => {
   });
 });
 
+test("adds heuristic metadata when no provider is configured", async () => {
+  await withQuietConsole(async () => {
+    const clips = await enrichClips([createClip("Heuristic")]);
+
+    assert.equal(clips[0]?.creatorMetadata?.source, "heuristic");
+    assert.equal(clips[0]?.creatorMetadata?.provider, "heuristic");
+    assert.equal(
+      clips[0]?.creatorMetadata?.fallbackReason,
+      "provider_not_configured"
+    );
+    assert.equal(clips[0]?.creatorMetadata?.attempts, 0);
+  });
+});
+
+test("summarizes aggregate creator usage totals", async () => {
+  await withQuietConsole(async () => {
+    const clips = await enrichClips(
+      [createClip("One"), createClip("Two")],
+      {
+        textProvider: createProvider([
+          {
+            text: JSON.stringify(
+              createInsights({ suggested_title: "AI One" })
+            ),
+            estimatedCostUsd: 0.00042,
+          },
+          new Error("sensitive provider detail"),
+        ]),
+      }
+    );
+
+    const summary = summarizeCreatorEnrichment(clips);
+
+    assert.equal(summary.clipsProcessed, 2);
+    assert.equal(summary.aiSuccessCount, 1);
+    assert.equal(summary.fallbackCount, 1);
+    assert.equal(summary.totalInputTokens, 100);
+    assert.equal(summary.totalOutputTokens, 20);
+    assert.equal(summary.totalTokens, 120);
+    assert.equal(summary.estimatedCostUsd, 0.00042);
+    assert.equal(typeof summary.averageLatencyMs, "number");
+  });
+});
+
+test("leaves OpenAI estimated cost undefined without pricing configuration", async () => {
+  const provider = new OpenAITextProvider({
+    apiKey: "test-key",
+    model: "test-model",
+    client: createOpenAIClient(),
+  });
+
+  const result = await provider.generateText({
+    prompt: "redacted prompt",
+  });
+
+  assert.equal(result.estimatedCostUsd, undefined);
+});
+
+test("calculates OpenAI estimated cost with configured pricing", async () => {
+  const provider = new OpenAITextProvider({
+    apiKey: "test-key",
+    model: "test-model",
+    inputCostPerMillion: 2,
+    outputCostPerMillion: 10,
+    client: createOpenAIClient(),
+  });
+
+  const result = await provider.generateText({
+    prompt: "redacted prompt",
+  });
+
+  assert.equal(result.inputTokens, 1000);
+  assert.equal(result.outputTokens, 200);
+  assert.equal(result.totalTokens, 1200);
+  assert.equal(result.estimatedCostUsd, 0.004);
+});
+
 function createProvider(
-  responses: Array<string | Error>
+  responses: Array<
+    string | Error | Awaited<ReturnType<TextAIProvider["generateText"]>>
+  >
 ): TextAIProvider {
   let callIndex = 0;
 
@@ -135,9 +240,46 @@ function createProvider(
         throw new Error("No mock response configured.");
       }
 
+      if (typeof response !== "string") {
+        return {
+          provider: "mock",
+          model: "mock-model",
+          inputTokens: 100,
+          outputTokens: 20,
+          totalTokens: 120,
+          responseId: "mock-response-id",
+          ...response,
+        };
+      }
+
       return {
+        provider: "mock",
+        model: "mock-model",
+        inputTokens: 100,
+        outputTokens: 20,
+        totalTokens: 120,
+        responseId: "mock-response-id",
         text: response,
       };
+    },
+  };
+}
+
+function createOpenAIClient() {
+  return {
+    responses: {
+      async create() {
+        return {
+          id: "resp_test",
+          model: "test-model",
+          output_text: JSON.stringify(createInsights()),
+          usage: {
+            input_tokens: 1000,
+            output_tokens: 200,
+            total_tokens: 1200,
+          },
+        };
+      },
     },
   };
 }

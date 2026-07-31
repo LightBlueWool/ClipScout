@@ -11,19 +11,32 @@ interface ResponsesClient {
   responses: {
     create(
       request: OpenAI.Responses.ResponseCreateParamsNonStreaming
-    ): Promise<{ output_text: string }>;
+    ): Promise<{
+      id?: string;
+      model?: string;
+      output_text: string;
+      usage?: {
+        input_tokens?: number;
+        output_tokens?: number;
+        total_tokens?: number;
+      };
+    }>;
   };
 }
 
 export interface OpenAITextProviderOptions {
   apiKey: string;
   model?: string;
+  inputCostPerMillion?: number;
+  outputCostPerMillion?: number;
   client?: ResponsesClient;
 }
 
 export class OpenAITextProvider implements TextAIProvider {
   private readonly client: ResponsesClient;
   private readonly model: string;
+  private readonly inputCostPerMillion: number | undefined;
+  private readonly outputCostPerMillion: number | undefined;
 
   constructor(options: OpenAITextProviderOptions) {
     if (!options.apiKey.trim() && !options.client) {
@@ -38,6 +51,9 @@ export class OpenAITextProvider implements TextAIProvider {
 
     this.model =
       options.model?.trim() || DEFAULT_OPENAI_TEXT_MODEL;
+
+    this.inputCostPerMillion = options.inputCostPerMillion;
+    this.outputCostPerMillion = options.outputCostPerMillion;
   }
 
   async generateText(
@@ -66,9 +82,55 @@ export class OpenAITextProvider implements TextAIProvider {
       throw new Error("OpenAI returned an empty text response.");
     }
 
-    return {
+    const result: TextGenerationResult = {
       text: response.output_text,
+      provider: "openai",
+      model: response.model ?? this.model,
     };
+
+    assignIfDefined(result, "inputTokens", response.usage?.input_tokens);
+    assignIfDefined(result, "outputTokens", response.usage?.output_tokens);
+    assignIfDefined(result, "totalTokens", response.usage?.total_tokens);
+    assignIfDefined(
+      result,
+      "estimatedCostUsd",
+      this.calculateEstimatedCost(
+        response.usage?.input_tokens,
+        response.usage?.output_tokens
+      )
+    );
+    assignIfDefined(result, "responseId", response.id);
+
+    return result;
+  }
+
+  private calculateEstimatedCost(
+    inputTokens: number | undefined,
+    outputTokens: number | undefined
+  ): number | undefined {
+    if (
+      this.inputCostPerMillion === undefined ||
+      this.outputCostPerMillion === undefined ||
+      inputTokens === undefined ||
+      outputTokens === undefined
+    ) {
+      return undefined;
+    }
+
+    return (
+      (inputTokens / 1_000_000) * this.inputCostPerMillion +
+      (outputTokens / 1_000_000) * this.outputCostPerMillion
+    );
+  }
+}
+
+function assignIfDefined<TKey extends keyof TextGenerationResult>(
+  result: TextGenerationResult,
+  key: TKey,
+  value: TextGenerationResult[TKey] | undefined
+): void {
+  if (value !== undefined) {
+    result[key] = value;
   }
 }
 
